@@ -1,0 +1,51 @@
+# Самопроверка репозитория сканера: чистый пример должен давать SAFE, вредоносный — BLOCK.
+name: Scanner self-test
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  self-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --quiet -r requirements.txt
+
+      - name: Clean example must be SAFE
+        run: |
+          python src/kukilab_scanner.py examples/demo-clean-skill --no-llm --quiet --json clean.json
+          test "$(python -c "import json;print(json.load(open('clean.json'))['verdict'])")" = "SAFE"
+
+      - name: Malicious example must be BLOCK
+        run: |
+          python src/kukilab_scanner.py examples/demo-malicious-skill --no-llm --quiet --json mal.json --sarif mal.sarif --fail-on NEVER
+          test "$(python -c "import json;print(json.load(open('mal.json'))['verdict'])")" = "BLOCK"
+
+      - name: SARIF is valid JSON with 2.1.0 schema
+        run: python -c "import json;s=json.load(open('mal.sarif'));assert s['version']=='2.1.0' and s['runs'][0]['results'];print('ok',len(s['runs'][0]['results']),'results')"
+
+      - name: Publish malicious-example report to step summary
+        run: python src/kukilab_scanner.py examples/demo-malicious-skill --no-llm --quiet --fail-on NEVER --markdown "$GITHUB_STEP_SUMMARY"
+
+  action-self-test:
+    name: Composite action smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run action on the clean example
+        id: clean
+        uses: ./
+        with:
+          path: examples/demo-clean-skill
+          no-llm: "true"
+          sarif: clean.sarif
+          json: clean.json
+          markdown: clean.md
+      - name: Verdict must be SAFE
+        run: test "${{ steps.clean.outputs.verdict }}" = "SAFE"

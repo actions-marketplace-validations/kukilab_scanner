@@ -1,0 +1,9 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+results.sarif
+results.json
+scan-report.md
+.hybrid_scanner_cache.json
+.DS_Store

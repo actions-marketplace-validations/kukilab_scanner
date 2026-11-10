@@ -1,0 +1,62 @@
+# KukiLab Scanner
+
+[![Scanner self-test](https://github.com/kukilab/scanner/actions/workflows/self-test.yml/badge.svg)](https://github.com/kukilab/scanner/actions/workflows/self-test.yml)
+![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+
+**KukiLab** — гибридный сканер безопасности AI-навыков (Claude Code Skills, Codex, MCP), который не только находит проблемы, но и доводит навык до состояния **SAFE**: `--fix` чистит Unicode-стеганографию и дописывает декларацию `allowed-tools`, SARIF-отчёт попадает в GitHub Security, а CI-гейт останавливает опасный PR.
+
+Три этапа: **Step 0** активная очистка Unicode (zero-width, BIDI, BOM, NFC) → **Step 1** статическая проверка манифеста и кода без штрафа за объём и без шума на кириллице (AE4) → **Step 2** семантический анализ прозы (офлайн-эвристики en/ru/de или Claude через API). Вердикты `SAFE / CAUTION / BLOCK`.
+
+## Быстрый старт
+
+```bash
+git clone https://github.com/kukilab/scanner.git && cd scanner
+bash setup.sh && source venv/bin/activate
+python src/kukilab_scanner.py /path/to/skill                     # отчёт в stdout
+python src/kukilab_scanner.py /path/to/skill --fix               # очистка + allowed-tools
+python src/kukilab_scanner.py /path/to/skill --sarif results.sarif --json results.json
+```
+
+## GitHub Action
+
+```yaml
+- uses: kukilab/scanner@main
+  with:
+    path: .
+    fail-on: BLOCK                      # BLOCK | CAUTION | NEVER
+    anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}   # опционально
+```
+
+Полный workflow с загрузкой SARIF в Security → Code scanning: [`templates/kukilab-scan.yml`](templates/kukilab-scan.yml). Пошаговое развертывание: [`DEPLOY.md`](DEPLOY.md).
+
+## Таксономия
+
+| Код | Угроза | | Код | Угроза |
+|---|---|---|---|---|
+| P-01 | Instruction Override | | P-06 | Fake Prerequisites Installer |
+| P-02 | Hidden Instructions in HTML Comments | | P-07 | Obfuscated Commands |
+| P-03 | Data Exfiltration via Network | | P-08 | Zero-Width Steganography |
+| P-04 | Unsanitized Remote Execution | | P-09 | Broad Trigger & Scope Creep |
+| P-05 | Credential Harvesting | | P-10 | Persistence Creation |
+| LP3 | Missing `allowed-tools` | | AST7 | Dynamic attribute access (Python) |
+
+Подробно: [`docs/llm-threat-taxonomy-prompt-guide.md`](docs/llm-threat-taxonomy-prompt-guide.md). Пример реального аудита: [`docs/case-erp-pilot-2026-11-09.md`](docs/case-erp-pilot-2026-11-09.md).
+
+## Содержимое
+
+| Путь | Назначение |
+|---|---|
+| `src/kukilab_scanner.py` | Движок (только стандартная библиотека; `pyyaml` опционально) |
+| `action.yml` | Composite GitHub Action |
+| `examples/demo-clean-skill/` | Эталон безопасного навыка → `SAFE` |
+| `examples/demo-malicious-skill/` | Тестовый вредоносный навык → `BLOCK` (фикстура для self-test) |
+| `templates/` | Workflow для проверяемых репозиториев, README-шаблон с бейджами, чек-лист |
+| `docs/`, `cicd/` | Таксономия, кейсы, заметки по SARIF |
+
+## Коды возврата
+
+`0` SAFE · `1` CAUTION (только при `--fail-on CAUTION`) · `2` BLOCK · `3` путь не найден.
+
+## Лицензия
+
+MIT © 2026 Andrey Trukhachev (KukiLab).

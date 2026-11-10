@@ -1,0 +1,89 @@
+name: "KukiLab Scanner"
+description: "Hybrid security scanner for AI agent skills: Unicode sanitizer (Step 0), static pass (Step 1), semantic pass (Step 2), verdict SAFE / CAUTION / BLOCK, SARIF 2.1.0 for GitHub Code Scanning."
+author: "KukiLab"
+branding:
+  icon: "shield"
+  color: "blue"
+
+inputs:
+  path:
+    description: "Directory of the skill to scan (or a single SKILL.md)."
+    required: false
+    default: "."
+  fail-on:
+    description: "Verdict that fails the job: BLOCK (default), CAUTION or NEVER."
+    required: false
+    default: "BLOCK"
+  sarif:
+    description: "Path of the SARIF 2.1.0 report to write."
+    required: false
+    default: "kukilab.sarif"
+  json:
+    description: "Path of the JSON report to write."
+    required: false
+    default: "kukilab.json"
+  markdown:
+    description: "Path of the Markdown report to write (appended to the step summary)."
+    required: false
+    default: "kukilab-report.md"
+  no-llm:
+    description: "Set to 'true' to skip the Anthropic API call in Step 2 (offline heuristics only)."
+    required: false
+    default: "false"
+  model:
+    description: "Model for Step 2 when ANTHROPIC_API_KEY is provided."
+    required: false
+    default: "claude-haiku-5-5"
+  extra-args:
+    description: "Any additional CLI arguments (e.g. --no-baseline --cache .kukilab_cache.json)."
+    required: false
+    default: ""
+  anthropic-api-key:
+    description: "Anthropic API key for Step 2. Omit to run Step 2 offline."
+    required: false
+    default: ""
+
+outputs:
+  verdict:
+    description: "SAFE, CAUTION or BLOCK"
+    value: ${{ steps.scan.outputs.verdict }}
+  risk-score:
+    description: "0-100"
+    value: ${{ steps.scan.outputs.risk_score }}
+  sarif:
+    description: "Path of the SARIF report"
+    value: ${{ inputs.sarif }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      shell: bash
+      run: python -m pip install --quiet -r "${{ github.action_path }}/requirements.txt"
+
+    - name: Run KukiLab Scanner
+      id: scan
+      shell: bash
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+      run: |
+        set +e
+        NOLLM=""
+        if [ "${{ inputs.no-llm }}" = "true" ]; then NOLLM="--no-llm"; fi
+        python "${{ github.action_path }}/src/kukilab_scanner.py" "${{ inputs.path }}" \
+          --sarif "${{ inputs.sarif }}" --json "${{ inputs.json }}" --markdown "${{ inputs.markdown }}" \
+          --quiet --fail-on "${{ inputs.fail-on }}" --model "${{ inputs.model }}" $NOLLM ${{ inputs.extra-args }}
+        CODE=$?
+        set -e
+        VERDICT=$(python -c "import json;print(json.load(open('${{ inputs.json }}'))['verdict'])")
+        RISK=$(python -c "import json;print(json.load(open('${{ inputs.json }}'))['risk_score'])")
+        echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
+        echo "risk_score=$RISK" >> "$GITHUB_OUTPUT"
+        cat "${{ inputs.markdown }}" >> "$GITHUB_STEP_SUMMARY"
+        echo "KukiLab verdict: $VERDICT ($RISK/100)"
+        exit $CODE
