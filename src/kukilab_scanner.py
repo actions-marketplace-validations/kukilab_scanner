@@ -99,7 +99,7 @@ INVISIBLE = {**ZERO_WIDTH, **BIDI}
 TEXT_EXT = {".md", ".markdown", ".txt", ".yaml", ".yml", ".json", ".toml"}
 CODE_EXT = {".py", ".sh", ".bash", ".zsh", ".js", ".mjs", ".cjs", ".ts", ".ps1", ".rb", ".php"}
 SCAN_EXT = TEXT_EXT | CODE_EXT
-SKIP_DIRS = {".git", "node_modules", "venv", ".venv", "__pycache__", ".mypy_cache", ".pytest_cache", "dist", "build"}
+SKIP_DIRS = {".git", "node_modules", "venv", ".venv", "__pycache__", ".mypy_cache", ".pytest_cache", "dist", "build", ".kukilab"}
 
 # Step 1 -------------------------------------------------------------------
 
@@ -435,9 +435,13 @@ def step1_static(root: Path, texts: Dict[Path, str], fix: bool, report: Report) 
             for m in rx.finditer(t):
                 ln, col = line_col(t, m.start())
                 # В Markdown понижаем уверенность: это может быть документация о том, чего НЕ делать.
-                c = conf if is_code else round(conf * 0.8, 2)
+                # Упоминания путей/файлов (без команды) в прозе — ещё слабее; при уверенности < 0.6 HIGH → MEDIUM.
+                c = conf if is_code else round(conf * (0.6 if rule == "P-05" else 0.8), 2)
+                s = sev
+                if not is_code and c < 0.6 and sev == "HIGH":
+                    s = "MEDIUM"
                 report.findings.append(Finding(
-                    rule_id=rule, severity=sev, confidence=c, title=title,
+                    rule_id=rule, severity=s, confidence=c, title=title,
                     description=RULES[rule]["desc"], file=r, line=ln, column=col,
                     excerpt=excerpt_at(t, m.start()), step="step1"))
         # AST7 — только Python

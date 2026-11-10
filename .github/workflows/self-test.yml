@@ -30,6 +30,11 @@ jobs:
       - name: SARIF is valid JSON with 2.1.0 schema
         run: python -c "import json;s=json.load(open('mal.sarif'));assert s['version']=='2.1.0' and s['runs'][0]['results'];print('ok',len(s['runs'][0]['results']),'results')"
 
+      - name: Bundled skill kukilab-scan must be SAFE
+        run: |
+          python src/kukilab_scanner.py skills/kukilab-scan --no-llm --quiet --json skill.json --fail-on NEVER
+          test "$(python -c "import json;print(json.load(open('skill.json'))['verdict'])")" = "SAFE"
+
       - name: Publish malicious-example report to step summary
         run: python src/kukilab_scanner.py examples/demo-malicious-skill --no-llm --quiet --fail-on NEVER --markdown "$GITHUB_STEP_SUMMARY"
 
