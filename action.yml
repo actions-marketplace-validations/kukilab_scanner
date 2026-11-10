@@ -1,5 +1,5 @@
 name: "KukiLab Scanner"
-description: "Hybrid security scanner for AI agent skills: Unicode sanitizer (Step 0), static pass (Step 1), semantic pass (Step 2), verdict SAFE / CAUTION / BLOCK, SARIF 2.1.0 for GitHub Code Scanning."
+description: "Hybrid security scanner for AI agent skills: Unicode sanitizer, static and semantic pass, SAFE/CAUTION/BLOCK, SARIF."
 author: "KukiLab"
 branding:
   icon: "shield"
