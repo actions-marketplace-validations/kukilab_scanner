@@ -1,0 +1,28 @@
+# При публикации релиза vX.Y.Z передвигает мажорный тег vX на тот же коммит,
+# чтобы `uses: kukilab/scanner@v1` всегда указывал на последний релиз 1.x.
+name: Update major tag
+
+on:
+  release:
+    types: [published, edited]
+
+permissions:
+  contents: write
+
+jobs:
+  major-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Move major tag
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          case "$TAG" in v[0-9]*.*) ;; *) echo "not a semver tag: $TAG"; exit 0;; esac
+          MAJOR="${TAG%%.*}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -fa "$MAJOR" -m "KukiLab Scanner $MAJOR (points to $TAG)" "${{ github.event.release.target_commitish }}" || git tag -fa "$MAJOR" -m "KukiLab Scanner $MAJOR (points to $TAG)" "$TAG"
+          git push -f origin "refs/tags/$MAJOR"
+          echo "moved $MAJOR -> $TAG"
