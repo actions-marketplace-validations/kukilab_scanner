@@ -1,8 +1,9 @@
 # KukiLab Scanner
 
 [![Scanner self-test](https://github.com/kukilab/scanner/actions/workflows/self-test.yml/badge.svg)](https://github.com/kukilab/scanner/actions/workflows/self-test.yml)
+[![KukiLab](https://kukilab.dev/badge/github.com/kukilab/scanner/skills/kukilab-scan.svg)](https://kukilab.dev/?check=https%3A%2F%2Fgithub.com%2Fkukilab%2Fscanner%2Ftree%2FHEAD%2Fskills%2Fkukilab-scan)
 [![Skillverdict](https://app.skillverdict.dev/badge/github.com/kukilab/scanner/skills/kukilab-scan.svg)](https://app.skillverdict.dev/github.com/kukilab/scanner/skills/kukilab-scan)
-![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+[![License: MIT](https://img.shields.io/github/license/kukilab/scanner?color=brightgreen)](LICENSE)
 
 **KukiLab** — гибридный сканер безопасности AI-навыков (Claude Code Skills, Codex, MCP), который не только находит проблемы, но и доводит навык до состояния **SAFE**: `--fix` чистит Unicode-стеганографию и дописывает декларацию `allowed-tools`, SARIF-отчёт попадает в GitHub Security, а CI-гейт останавливает опасный PR.
 
@@ -26,7 +27,7 @@ npx skills add kukilab/scanner --skill kukilab-scan
 
 Исходник навыка: [`skills/kukilab-scan`](https://github.com/kukilab/scanner/tree/main/skills/kukilab-scan).
 
-Навык `kukilab-scan` запускает Step 0 и Step 1 скриптом, а Step 2 (семантику прозы) выполняет сам агент — без ключей API и внешних сервисов. Движок подтягивается из этого репозитория по релизу `v1.0.0`, репозиторий, тег и коммит записаны в `skills/kukilab-scan/engine.json`, скрипт сверяет коммит перед запуском. Плейбук ремонта до SAFE — в [`skills/kukilab-scan/references/fix-playbook.md`](skills/kukilab-scan/references/fix-playbook.md).
+Навык `kukilab-scan` запускает Step 0 и Step 1 скриптом, а Step 2 (семантику прозы) выполняет сам агент — без ключей API и внешних сервисов. Движок подтягивается из этого репозитория по закреплённому релизу: репозиторий, тег и коммит записаны в `skills/kukilab-scan/engine.json`, скрипт сверяет коммит перед запуском. Плейбук ремонта до SAFE — в [`skills/kukilab-scan/references/fix-playbook.md`](skills/kukilab-scan/references/fix-playbook.md).
 
 ## GitHub Action
 
@@ -39,6 +40,33 @@ npx skills add kukilab/scanner --skill kukilab-scan
 ```
 
 Полный workflow с загрузкой SARIF в Security → Code scanning: [`templates/kukilab-scan.yml`](templates/kukilab-scan.yml). Пошаговое развертывание: [`DEPLOY.md`](DEPLOY.md).
+
+## Бейдж для README
+
+Живой бейдж навыка отдаёт [kukilab.dev](https://kukilab.dev): вставьте ссылку на навык в «Проверить по ссылке» и скопируйте строку из блока «Бейдж для README».
+
+- **STATIC PASSED** — статическая проверка на сайте пройдена (Step 0, Step 1, офлайн-эвристики Step 2). Ключ API не нужен.
+- **SAFE** — пройден и смысловой проход Step 2. Его запускает готовый рабочий процесс в репозитории навыка, с вашим ключом API Anthropic:
+
+```yaml
+# .github/workflows/kukilab-safe.yml
+name: KukiLab SAFE
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  safe:
+    uses: kukilab/scanner/.github/workflows/safe.yml@v1
+    with:
+      path: my-skill          # папка с SKILL.md; "." для навыка в корне
+    secrets:
+      anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+Рабочий процесс сообщает результат на kukilab.dev вместе с токеном, который подписывает GitHub: он подтверждает репозиторий, коммит и то, что выполнялся именно этот файл. Сервис сам пересчитывает статическую часть на том же коммите. SAFE действует для проверенного коммита: после нового коммита бейдж показывает STATIC PASSED, пока рабочий процесс не отработает снова. Ключ API на kukilab.dev не передаётся.
 
 ## Таксономия
 
